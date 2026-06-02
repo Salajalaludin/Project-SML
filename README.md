@@ -4,7 +4,7 @@ Proyek ini menganalisis dataset **Online Retail II** dari UCI Machine Learning R
 
 ## Ringkasan
 
-Analisis dilakukan dengan menggabungkan dua sheet transaksi Online Retail II, membersihkan data, membentuk fitur RFM pada level pelanggan, lalu membandingkan metode **K-Means** dan **Gaussian Mixture Model (GMM)**.
+Analisis dilakukan dengan menggabungkan dua sheet transaksi Online Retail II, membersihkan data, membentuk fitur RFM pada level pelanggan, lalu membandingkan beberapa algoritma clustering untuk memilih hasil segmentasi terbaik berdasarkan metrik validasi internal.
 
 Jumlah cluster optimal yang digunakan adalah:
 
@@ -58,8 +58,11 @@ Metode clustering yang dibandingkan:
 |---|---|
 | K-Means | Clustering berbasis centroid |
 | GMM | Clustering berbasis model probabilistik Gaussian |
+| Hierarchical Clustering | Clustering hierarkis dengan average linkage |
+| PAM / K-Medoids | Clustering berbasis medoid |
+| DBSCAN | Clustering berbasis kepadatan dan deteksi noise |
 
-## Alur Kerja Lengkap yang Direkomendasikan
+## Alur Kerja Lengkap
 
 Berikut komponen alur kerja yang perlu dicakup dalam pengembangan analisis clustering, mulai dari preprocessing sampai evaluasi akhir.
 
@@ -77,9 +80,9 @@ Komponen yang perlu dilakukan:
 | Pembentukan fitur RFM | Mengubah data transaksi menjadi data pelanggan | `group_by()`, `summarise()` |
 | Standardisasi fitur | Menyamakan skala Recency, Frequency, dan Monetary | `scale()` |
 
-### 2. Algoritma Clustering Tambahan
+### 2. Algoritma Clustering yang Dibandingkan
 
-Selain K-Means dan GMM, algoritma berikut dapat ditambahkan untuk memperluas perbandingan metode clustering:
+Seluruh algoritma berikut diperlakukan sebagai kandidat metode clustering yang setara. Hasil akhir dipilih berdasarkan tabel validasi:
 
 | Algoritma | Keterangan | Fungsi R |
 |---|---|---|
@@ -148,7 +151,7 @@ Validasi cluster menggunakan:
 
 ## Hasil Utama
 
-Berdasarkan hasil validasi, **K-Means** menghasilkan performa yang lebih baik dibandingkan GMM.
+Berdasarkan hasil validasi, algoritma terbaik dipilih dari seluruh kandidat metode clustering menggunakan ranking metrik internal.
 
 Ringkasan hasil validasi:
 
@@ -157,7 +160,13 @@ Ringkasan hasil validasi:
 | K-Means | 0.4381 | 0.9693 | 4393.74 |
 | GMM | 0.2924 | 1.0982 | 1123.55 |
 
-Segmentasi akhir menggunakan hasil **K-Means** dengan `k = 2`.
+Segmentasi akhir menggunakan `Cluster_Final`, yaitu hasil dari algoritma dengan ranking validasi terbaik. Ranking mempertimbangkan:
+
+| Metrik | Arah yang Diutamakan |
+|---|---|
+| Silhouette | Lebih tinggi lebih baik |
+| Davies-Bouldin | Lebih rendah lebih baik |
+| Calinski-Harabasz | Lebih tinggi lebih baik |
 
 ## Interpretasi Cluster
 
