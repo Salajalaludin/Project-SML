@@ -16,6 +16,19 @@ linkcolor: blue             # Warna link
 urlcolor: cyan              # Warna URL web
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = FALSE,
+  message    = FALSE,
+  warning    = FALSE,
+  fig.align  = "center",
+  fig.width  = 7,
+  fig.height = 4.5,
+  dpi        = 300,
+  out.width  = "95%"
+)
+options(width = 90)
+```
 
 \newpage
 
@@ -32,7 +45,8 @@ library(mclust)       # GMM (Gaussian Mixture Model)
 library(fpc)          # cluster.stats() — Davies-Bouldin, Calinski-Harabasz
 library(scales)       # comma() untuk format angka
 library(clusterSim)   # index.DB() untuk Davies-Bouldin Index
-library(dbscan)        # DBSCAN dan kNNdistplot()
+library(dbscan)       # DBSCAN dan kNNdistplot()
+library(tidyr)        # pivot_longer()
 
 ```
 
@@ -361,7 +375,25 @@ cat("Rata-rata Silhouette GMM     :", round(avg_sil_gmm, 4), "\n")
 ```
 
 ```{r}
-par(mfrow = c(1, 2))
+silhouette_ringkas <- data.frame(
+  Metode     = c("K-Means", "GMM"),
+  Silhouette = c(avg_sil_km, avg_sil_gmm)
+)
+
+ggplot(silhouette_ringkas,
+       aes(x = Metode, y = Silhouette, fill = Metode)) +
+  geom_col(width = 0.55, show.legend = FALSE) +
+  geom_text(aes(label = round(Silhouette, 3)),
+            vjust = -0.4, size = 4) +
+  scale_fill_manual(values = c("#4E79A7", "#F28E2B")) +
+  scale_y_continuous(limits = c(0, max(silhouette_ringkas$Silhouette) + 0.1)) +
+  labs(title = "Perbandingan Rata-rata Silhouette",
+       x = NULL,
+       y = "Average Silhouette Width") +
+  theme_bw()
+```
+
+```{r, include=FALSE, eval=FALSE}
 plot(sil_km,  col = c("#4E79A7","#F28E2B"),
      border   = NA, main = "Silhouette — K-Means")
 plot(sil_gmm, col = c("#4E79A7","#F28E2B"),
@@ -479,8 +511,24 @@ cluster_candidates <- list(
 best_method <- validasi_semua$Metode[1]
 rfm$Cluster_Final <- as.factor(cluster_candidates[[best_method]])
 
-knitr::kable(validasi_semua,
-             caption = "Rangkuman Validasi Internal dan Pemilihan Algoritma Terbaik")
+validasi_laporan <- validasi_semua |>
+  dplyr::select(
+    Metode,
+    N,
+    Cluster = Jumlah.Cluster,
+    Noise,
+    Silhouette,
+    DB = Davies.Bouldin,
+    CH = Calinski.Harabasz,
+    Rank = Rank.Total
+  )
+
+knitr::kable(
+  validasi_laporan,
+  align = "lrrrrrrr",
+  format.args = list(big.mark = ","),
+  caption = "Rangkuman Validasi Internal dan Pemilihan Algoritma Terbaik"
+)
 
 cat("Algoritma clustering terbaik yang dipilih:", best_method, "\n")
 cat("Ukuran cluster final:\n")
@@ -497,13 +545,28 @@ Tabel kontingensi digunakan untuk melihat kesesuaian hasil cluster antar metode.
 
 
 ```{r}
-for (metode in names(cluster_candidates)) {
-  if (metode != best_method) {
-    cat("\nAlgoritma terpilih vs", metode, ":\n")
-    print(table(Cluster_Final = rfm$Cluster_Final,
-                Pembanding    = as.factor(cluster_candidates[[metode]])))
+kontingensi_list <- lapply(names(cluster_candidates), function(metode) {
+  if (metode == best_method) {
+    return(NULL)
   }
-}
+
+  as.data.frame.matrix(
+    table(
+      Cluster_Final = rfm$Cluster_Final,
+      Pembanding    = as.factor(cluster_candidates[[metode]])
+    )
+  ) |>
+    tibble::rownames_to_column("Cluster_Final") |>
+    mutate(Metode.Pembanding = metode, .before = 1)
+})
+
+kontingensi_ringkas <- bind_rows(kontingensi_list)
+
+knitr::kable(
+  kontingensi_ringkas,
+  caption = "Tabel Kontingensi Cluster Final terhadap Algoritma Pembanding",
+  format.args = list(big.mark = ",")
+)
 
 ```
 
