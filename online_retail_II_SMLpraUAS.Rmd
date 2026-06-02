@@ -1,10 +1,23 @@
 ---
 title: "Tugas SML: Customer Segmentation dengan Clustering"
 subtitle: "Dataset Online Retail II — UCI Machine Learning Repository"
-author: "Nama Mahasiswa"
-date: "`r Sys.Date()`"
-output: pdf_document
+author: "Sala Jalaludin (3338240016)"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output: 
+  pdf_document:
+    toc: true               # Menampilkan Daftar Isi otomatis
+    toc_depth: 3            # Kedalaman Daftar Isi sampai H3
+    number_sections: true   # Penomoran otomatis pada Bab (1., 1.1, dst)
+    keep_tex: false         # Tidak menyimpan file mentah .tex
+fontsize: 11pt
+geometry: margin=1in        # Margin standar internasional (2.54 cm)
+linestretch: 1.25           # Jarak antar baris agar nyaman dibaca
+linkcolor: blue             # Warna link
+urlcolor: cyan              # Warna URL web
 ---
+
+
+\newpage
 
 # Load Libraries
 
@@ -19,6 +32,8 @@ library(mclust)       # GMM (Gaussian Mixture Model)
 library(fpc)          # cluster.stats() — Davies-Bouldin, Calinski-Harabasz
 library(scales)       # comma() untuk format angka
 library(clusterSim)   # index.DB() untuk Davies-Bouldin Index
+library(dbscan)        # DBSCAN dan kNNdistplot()
+
 ```
 
 # Import Dataset
@@ -35,6 +50,26 @@ retail  <- bind_rows(sheet1, sheet2)
 
 cat("Dimensi awal:", nrow(retail), "baris x", ncol(retail), "kolom\n")
 glimpse(retail)
+```
+
+## Pemeriksaan Missing Value
+
+Sebelum data dibersihkan, dilakukan pemeriksaan nilai kosong (`NA`) pada setiap kolom. Bagian ini penting karena clustering tidak dapat bekerja dengan baik jika fitur numerik masih mengandung nilai hilang.
+
+
+```{r}
+missing_summary <- data.frame(
+  Kolom      = names(retail),
+  Missing    = colSums(is.na(retail)),
+  Persentase = round(colSums(is.na(retail)) / nrow(retail) * 100, 2)
+)
+
+knitr::kable(missing_summary,
+             caption = "Ringkasan Missing Value per Kolom")
+
+cat("Total missing value:", sum(is.na(retail)), "\n")
+cat("Missing Customer ID:", sum(is.na(retail$`Customer ID`)), "\n")
+
 ```
 
 # Data Cleaning
@@ -216,6 +251,94 @@ fviz_cluster(list(data    = rfm_scaled,
   theme(legend.position = "right")
 ```
 
+# Metode Clustering 3: Hierarchical Clustering
+
+Hierarchical Clustering digunakan untuk membentuk struktur kluster bertingkat. Pada analisis ini digunakan **Average Linkage** (`method = "average"`). Jumlah cluster ditentukan dengan memotong dendrogram menggunakan `cutree()` berdasarkan nilai `k_opt`.
+
+
+```{r}
+dist_rfm <- dist(rfm_scaled, method = "euclidean")
+
+hc_average <- hclust(dist_rfm, method = "average")
+rfm$Cluster_HClust <- as.factor(cutree(hc_average, k = k_opt))
+
+cat("Ukuran tiap cluster Hierarchical Average Linkage:\n")
+print(table(rfm$Cluster_HClust))
+
+```
+
+## Visualisasi Dendrogram dan Cutting Tree
+
+
+```{r}
+plot(hc_average,
+     labels = FALSE,
+     hang   = -1,
+     main   = "Dendrogram — Hierarchical Clustering Average Linkage")
+rect.hclust(hc_average, k = k_opt, border = c("#4E79A7", "#F28E2B"))
+
+```
+
+# Metode Clustering 4: Partitioning Around Medoids (K-Medoids)
+
+PAM atau K-Medoids mirip dengan K-Means, tetapi pusat cluster menggunakan objek aktual (*medoid*) sehingga lebih tahan terhadap outlier.
+
+
+```{r}
+set.seed(16)
+pam_result <- pam(rfm_scaled, k = k_opt)
+
+rfm$Cluster_PAM <- as.factor(pam_result$clustering)
+cat("Ukuran tiap cluster PAM / K-Medoids:\n")
+print(table(rfm$Cluster_PAM))
+
+```
+
+## Visualisasi PAM (PCA 2D)
+
+
+```{r}
+fviz_cluster(pam_result,
+             data    = rfm_scaled,
+             geom    = "point",
+             palette = c("#4E79A7", "#F28E2B"),
+             ggtheme = theme_bw(),
+             main    = "Cluster Plot — PAM / K-Medoids (k = 2)") +
+  theme(legend.position = "right")
+
+```
+
+# Metode Clustering 5: DBSCAN
+
+DBSCAN mengelompokkan data berdasarkan kepadatan titik dan dapat mendeteksi noise/outlier. Parameter utama yang perlu ditentukan adalah `eps` dan `minPts`.
+
+
+
+## Penentuan `eps` dengan k-Distance Plot
+
+Plot k-distance digunakan untuk mencari titik siku (*elbow*) sebagai kandidat nilai `eps`. Nilai `eps_opt` di bawah dapat disesuaikan berdasarkan bentuk plot.
+
+
+```{r}
+min_pts <- 4
+
+kNNdistplot(rfm_scaled, k = min_pts)
+abline(h = 0.5, lty = 2, col = "#E15759")
+title("k-Distance Plot untuk Penentuan eps DBSCAN")
+
+eps_opt <- 0.5
+
+```
+
+```{r}
+dbscan_result <- dbscan::dbscan(rfm_scaled, eps = eps_opt, minPts = min_pts)
+
+rfm$Cluster_DBSCAN <- as.factor(dbscan_result$cluster)
+cat("Ukuran tiap cluster DBSCAN, 0 = noise:\n")
+print(table(rfm$Cluster_DBSCAN))
+
+```
+
 # Validasi Cluster
 
 Validasi menggunakan kriteria **internal** karena tidak ada label kelas yang diketahui (unsupervised).
@@ -272,31 +395,126 @@ cat("Calinski-Harabasz K-Means :", round(stats_km$ch,  2), "\n")
 cat("Calinski-Harabasz GMM     :", round(stats_gmm$ch, 2), "\n")
 ```
 
-## Ringkasan Validasi
+## Validasi Lengkap Semua Algoritma
+
+Bagian ini memperluas validasi internal agar mencakup K-Means, GMM, Hierarchical Clustering, PAM/K-Medoids, dan DBSCAN. Untuk DBSCAN, noise (`cluster = 0`) dikeluarkan dari perhitungan metrik internal karena noise tidak dihitung sebagai cluster evaluasi.
+
 
 ```{r}
-val_tbl <- data.frame(
-  Metode              = c("K-Means", "GMM"),
-  Silhouette          = round(c(avg_sil_km, avg_sil_gmm), 4),
-  Davies.Bouldin      = round(c(db_km, db_gmm), 4),   # tambah ini
-  Calinski.Harabasz   = round(c(stats_km$ch, stats_gmm$ch), 2)
+validate_cluster <- function(cluster_label, method_name, exclude_noise = FALSE) {
+  label <- as.character(cluster_label)
+  keep  <- !is.na(label)
+
+  if (exclude_noise) {
+    keep <- keep & label != "0"
+  }
+
+  label_keep <- label[keep]
+
+  if (length(unique(label_keep)) < 2 || sum(keep) < 3) {
+    return(data.frame(
+      Metode              = method_name,
+      N                   = sum(keep),
+      Jumlah.Cluster      = length(unique(label_keep)),
+      Noise               = sum(label == "0", na.rm = TRUE),
+      Silhouette          = NA,
+      Shadow.Value        = NA,
+      Davies.Bouldin      = NA,
+      Calinski.Harabasz   = NA
+    ))
+  }
+
+  x <- as.data.frame(rfm_scaled[keep, , drop = FALSE])
+  y <- as.integer(as.factor(label_keep))
+  d <- dist(x)
+
+  sil <- mean(silhouette(y, d)[, 3])
+  st  <- cluster.stats(d, y)
+  db  <- tryCatch(index.DB(x, y)$DB, error = function(e) NA)
+
+  # Beberapa versi cluster.stats tidak menyediakan field shadow eksplisit.
+  shadow_value <- if ("shadow" %in% names(st)) {
+    st$shadow
+  } else if ("avg.silwidth" %in% names(st)) {
+    st$avg.silwidth
+  } else {
+    NA
+  }
+
+  data.frame(
+    Metode              = method_name,
+    N                   = sum(keep),
+    Jumlah.Cluster      = length(unique(label_keep)),
+    Noise               = sum(label == "0", na.rm = TRUE),
+    Silhouette          = round(sil, 4),
+    Shadow.Value        = round(shadow_value, 4),
+    Davies.Bouldin      = round(db, 4),
+    Calinski.Harabasz   = round(st$ch, 2)
+  )
+}
+
+validasi_semua <- bind_rows(
+  validate_cluster(rfm$Cluster_KMeans, "K-Means"),
+  validate_cluster(rfm$Cluster_GMM, "GMM"),
+  validate_cluster(rfm$Cluster_HClust, "Hierarchical Average"),
+  validate_cluster(rfm$Cluster_PAM, "PAM / K-Medoids"),
+  validate_cluster(rfm$Cluster_DBSCAN, "DBSCAN", exclude_noise = TRUE)
+) |>
+  mutate(
+    Rank.Silhouette        = ifelse(is.na(Silhouette), Inf, min_rank(desc(Silhouette))),
+    Rank.Davies.Bouldin    = ifelse(is.na(Davies.Bouldin), Inf, min_rank(Davies.Bouldin)),
+    Rank.Calinski.Harabasz = ifelse(is.na(Calinski.Harabasz), Inf, min_rank(desc(Calinski.Harabasz))),
+    Rank.Total             = Rank.Silhouette + Rank.Davies.Bouldin + Rank.Calinski.Harabasz
+  ) |>
+  arrange(Rank.Total, desc(Silhouette), Davies.Bouldin, desc(Calinski.Harabasz))
+
+cluster_candidates <- list(
+  "K-Means"              = rfm$Cluster_KMeans,
+  "GMM"                  = rfm$Cluster_GMM,
+  "Hierarchical Average" = rfm$Cluster_HClust,
+  "PAM / K-Medoids"      = rfm$Cluster_PAM,
+  "DBSCAN"               = rfm$Cluster_DBSCAN
 )
-knitr::kable(val_tbl, align = "lrr",
-             caption = "Perbandingan Indeks Validasi Internal")
+
+best_method <- validasi_semua$Metode[1]
+rfm$Cluster_Final <- as.factor(cluster_candidates[[best_method]])
+
+knitr::kable(validasi_semua,
+             caption = "Rangkuman Validasi Internal dan Pemilihan Algoritma Terbaik")
+
+cat("Algoritma clustering terbaik yang dipilih:", best_method, "\n")
+cat("Ukuran cluster final:\n")
+print(table(rfm$Cluster_Final))
+
 ```
 
 > **Interpretasi:** Metode dengan Silhouette lebih tinggi, Calinski-Harabasz lebih besar, dan Davies Bouldin lebih kecil dianggap menghasilkan cluster yang lebih kompak dan terpisah dengan baik.
 
 
+## Tabel Kontingensi Antar-Algoritma
+
+Tabel kontingensi digunakan untuk melihat kesesuaian hasil cluster antar metode. Pada bagian ini, hasil dari **algoritma terpilih** dibandingkan dengan algoritma lainnya. Semua algoritma diperlakukan sebagai kandidat yang setara.
+
+
+```{r}
+for (metode in names(cluster_candidates)) {
+  if (metode != best_method) {
+    cat("\nAlgoritma terpilih vs", metode, ":\n")
+    print(table(Cluster_Final = rfm$Cluster_Final,
+                Pembanding    = as.factor(cluster_candidates[[metode]])))
+  }
+}
+
+```
+
 ---
 
 # Profil Cluster
 
-Cluster yang digunakan untuk interpretasi adalah hasil metode terbaik berdasarkan validasi di atas. Di sini kita analisis profil RFM per cluster.
+Cluster yang digunakan untuk interpretasi adalah `Cluster_Final`, yaitu hasil dari algoritma terbaik berdasarkan tabel validasi internal semua algoritma.
+
 
 ```{r}
-rfm$Cluster_Final <- rfm$Cluster_KMeans
-
 profil <- rfm |>
   group_by(Cluster_Final) |>
   summarise(
@@ -305,7 +523,6 @@ profil <- rfm |>
     Frequency = round(mean(Frequency), 1),
     Monetary  = round(mean(Monetary),  0)
   )
-
 knitr::kable(profil, align = "lrrrr",
              format.args = list(big.mark = ","),
              caption     = "Profil Rata-rata RFM per Cluster")
