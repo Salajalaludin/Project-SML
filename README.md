@@ -1,6 +1,21 @@
 # Segmentasi Pelanggan Online Retail II dengan RFM dan Clustering
 
-Proyek ini melakukan segmentasi pelanggan pada dataset **Online Retail II** menggunakan fitur **RFM** (*Recency, Frequency, Monetary*) dan beberapa algoritma clustering. Hasil akhir tidak diambil dari satu algoritma secara manual, tetapi dipilih dari tabel validasi internal melalui variabel `Cluster_Final`.
+Proyek ini melakukan segmentasi pelanggan pada dataset **Online Retail II** menggunakan pendekatan **RFM** (*Recency, Frequency, Monetary*) dan beberapa algoritma clustering. Karena dataset tidak memiliki label kelas bawaan, analisis ini termasuk **unsupervised learning murni**. Hasil akhir dipilih secara objektif melalui **Internal Criteria**, bukan berdasarkan satu algoritma yang ditentukan manual.
+
+## Daftar Isi
+
+- [Ringkasan Proyek](#ringkasan-proyek)
+- [Dataset](#dataset)
+- [Fitur RFM](#fitur-rfm)
+- [Alur Analisis](#alur-analisis)
+- [Algoritma Clustering](#algoritma-clustering)
+- [Validasi Cluster](#validasi-cluster)
+- [Rangkuman Hasil Validasi](#rangkuman-hasil-validasi)
+- [Interpretasi Cluster Final](#interpretasi-cluster-final)
+- [External Criteria](#external-criteria)
+- [Struktur File](#struktur-file)
+- [Cara Menjalankan](#cara-menjalankan)
+- [Output](#output)
 
 ## Ringkasan Proyek
 
@@ -14,48 +29,57 @@ Proyek ini melakukan segmentasi pelanggan pada dataset **Online Retail II** meng
 | Customer unik | 5.878 pelanggan |
 | Data RFM | 5.878 pelanggan |
 | Jumlah cluster (`k`) | `k = 2` |
+| Algoritma terpilih | K-Means |
 
 Pemilihan `k = 2` didasarkan pada **Silhouette Method**, karena nilai rata-rata silhouette tertinggi berada pada `k = 2`. Dengan jumlah cluster ini, segmentasi dapat dibaca sebagai dua kelompok besar pelanggan: pelanggan lebih aktif/bernilai tinggi dan pelanggan kurang aktif/bernilai rendah.
 
 ## Dataset
 
-File dataset yang digunakan:
+Dataset yang digunakan adalah file:
 
 ```text
 online_retail_II.xlsx
 ```
 
-Sheet yang digabungkan:
+File tersebut berisi dua sheet transaksi:
 
 ```text
 Year 2009-2010
 Year 2010-2011
 ```
 
-Data dibersihkan dengan menghapus transaksi yang tidak memiliki `Customer ID`, transaksi retur, serta transaksi dengan `Quantity` atau `Price` yang tidak valid.
+Kedua sheet digabungkan sebelum dilakukan preprocessing. Data kemudian dibersihkan dengan menghapus:
+
+- transaksi tanpa `Customer ID`,
+- transaksi retur atau invoice yang diawali huruf `C`,
+- transaksi dengan `Quantity <= 0`,
+- transaksi dengan `Price <= 0`.
 
 ## Fitur RFM
 
-| Fitur | Deskripsi |
-|---|---|
-| Recency | Selisih hari sejak transaksi terakhir pelanggan |
-| Frequency | Jumlah invoice unik pelanggan |
-| Monetary | Total nilai belanja pelanggan |
+RFM digunakan untuk mengubah data transaksi menjadi data pelanggan. Setiap pelanggan direpresentasikan oleh tiga fitur utama:
 
-Sebelum clustering, fitur RFM ditransformasi dan distandarisasi menggunakan `scale()` agar perbedaan skala antarfitur tidak mendominasi hasil clustering.
+| Fitur | Deskripsi | Interpretasi |
+|---|---|---|
+| Recency | Selisih hari sejak transaksi terakhir pelanggan | Semakin kecil, pelanggan semakin aktif |
+| Frequency | Jumlah invoice unik pelanggan | Semakin besar, pelanggan semakin sering bertransaksi |
+| Monetary | Total nilai belanja pelanggan | Semakin besar, pelanggan semakin bernilai |
+
+Sebelum clustering, fitur RFM ditransformasi dan distandarisasi menggunakan `scale()` agar perbedaan skala antarfitur tidak mendominasi perhitungan jarak.
 
 ## Alur Analisis
 
-1. Import dan penggabungan dua sheet transaksi.
-2. Pemeriksaan missing value (`NA`).
-3. Cleaning data transaksi.
-4. Pembentukan fitur RFM per pelanggan.
-5. Transformasi dan scaling fitur RFM.
-6. Penentuan jumlah cluster optimal menggunakan Elbow Method dan Silhouette Method.
-7. Penerapan beberapa algoritma clustering.
-8. Validasi hasil clustering menggunakan metrik internal.
-9. Pemilihan algoritma terbaik ke dalam `Cluster_Final`.
-10. Interpretasi profil cluster.
+1. Import dua sheet transaksi dari file Excel.
+2. Gabungkan data transaksi 2009-2010 dan 2010-2011.
+3. Periksa missing value (`NA`).
+4. Bersihkan transaksi tidak valid.
+5. Bentuk fitur RFM pada level pelanggan.
+6. Transformasi dan scaling fitur RFM.
+7. Tentukan jumlah cluster optimal menggunakan Elbow Method dan Silhouette Method.
+8. Jalankan beberapa algoritma clustering.
+9. Validasi hasil clustering menggunakan Internal Criteria.
+10. Pilih algoritma terbaik ke dalam variabel `Cluster_Final`.
+11. Interpretasikan profil cluster berdasarkan rata-rata RFM.
 
 ## Algoritma Clustering
 
@@ -71,7 +95,9 @@ Semua algoritma diperlakukan sebagai kandidat. Hasil akhir dipilih berdasarkan k
 
 ## Validasi Cluster
 
-Karena dataset ini tidak memiliki label kelas bawaan, analisis dilakukan sebagai **unsupervised learning murni**. Artinya, hasil cluster tidak bisa dinilai menggunakan akurasi terhadap label asli. Oleh karena itu, proyek ini **wajib menggunakan Internal Criteria** untuk mengukur kualitas pembagian kelompok secara objektif berdasarkan struktur data.
+Karena dataset ini tidak memiliki label kelas bawaan, hasil clustering tidak dapat dinilai menggunakan akurasi terhadap label asli. Oleh karena itu, proyek ini **wajib menggunakan Internal Criteria** untuk menilai kualitas pembagian kelompok secara objektif.
+
+Internal Criteria yang digunakan:
 
 | Metrik | Arah Evaluasi | Fungsi R |
 |---|---|---|
@@ -79,6 +105,16 @@ Karena dataset ini tidak memiliki label kelas bawaan, analisis dilakukan sebagai
 | Shadow Value | Lebih besar lebih baik | `cluster.stats()` |
 | Davies-Bouldin Index | Lebih kecil lebih baik | `index.DB()` |
 | Calinski-Harabasz Index | Lebih besar lebih baik | `cluster.stats()` |
+
+Keterangan singkatan pada tabel hasil:
+
+| Singkatan | Arti |
+|---|---|
+| `Sil` | Silhouette Width |
+| `Shad` | Shadow Value |
+| `DB` | Davies-Bouldin Index |
+| `CH` | Calinski-Harabasz Index |
+| `Rank` | Total ranking dari metrik internal |
 
 Notebook dan Rmd membuat tabel `validasi_semua`, lalu menghitung ranking untuk tiap metrik:
 
@@ -89,7 +125,7 @@ Rank.Calinski.Harabasz
 Rank.Total
 ```
 
-Algoritma dengan `Rank.Total` terbaik dipilih sebagai `Cluster_Final`. Pada hasil notebook saat ini, algoritma yang terpilih adalah **K-Means**.
+Algoritma dengan `Rank.Total` terbaik dipilih sebagai `Cluster_Final`. Pada hasil saat ini, algoritma yang terpilih adalah **K-Means**.
 
 ## Rangkuman Hasil Validasi
 
@@ -101,7 +137,9 @@ Algoritma dengan `Rank.Total` terbaik dipilih sebagai `Cluster_Final`. Pada hasi
 | GMM | 5.878 | 2 | 0 | 0.2924 | 0.2924 | 1.0982 | 3056.20 | 11 |
 | DBSCAN | 5.819 | 2 | 59 | 0.2784 | 0.2784 | 1.1334 | 2902.03 | 14 |
 
-DBSCAN memiliki 59 data noise. Untuk validasi internal DBSCAN, noise dikeluarkan dari perhitungan metrik agar evaluasi hanya membandingkan anggota cluster.
+DBSCAN menghasilkan 59 data noise. Untuk validasi internal DBSCAN, data noise (`cluster = 0`) dikeluarkan dari perhitungan metrik agar evaluasi hanya membandingkan anggota cluster.
+
+Berdasarkan total ranking internal, **K-Means** dipilih sebagai hasil akhir karena memiliki kombinasi metrik terbaik secara keseluruhan.
 
 ## Interpretasi Cluster Final
 
@@ -116,7 +154,7 @@ Nomor cluster dapat berubah tergantung hasil algoritma, sehingga interpretasi se
 
 ## External Criteria
 
-External criteria seperti **Cluster Accuracy**, **Cluster Purity**, dan **Rand Index** hanya dapat digunakan jika tersedia label asli. Karena dataset ini tidak memiliki label asli segmentasi pelanggan, bagian tersebut bersifat opsional/template.
+External Criteria seperti **Cluster Accuracy**, **Cluster Purity**, dan **Rand Index** hanya dapat digunakan jika tersedia label asli. Karena dataset ini tidak memiliki label asli segmentasi pelanggan, bagian tersebut bersifat opsional/template.
 
 Jika label asli tersedia, Rand Index dapat dihitung dengan package `clusterCrit`.
 
