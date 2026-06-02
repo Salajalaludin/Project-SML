@@ -59,6 +59,85 @@ Metode clustering yang dibandingkan:
 | K-Means | Clustering berbasis centroid |
 | GMM | Clustering berbasis model probabilistik Gaussian |
 
+## Alur Kerja Lengkap yang Direkomendasikan
+
+Berikut komponen alur kerja yang perlu dicakup dalam pengembangan analisis clustering, mulai dari preprocessing sampai evaluasi akhir.
+
+### 1. Preprocessing
+
+Tahap preprocessing digunakan untuk memastikan data siap dianalisis dan tidak menghasilkan bias pada proses clustering.
+
+Komponen yang perlu dilakukan:
+
+| Komponen | Tujuan | Fungsi R |
+|---|---|---|
+| Pemeriksaan missing value | Mengecek nilai kosong pada data | `is.na()`, `colSums(is.na())` |
+| Penanganan missing value | Menghapus atau memperbaiki data yang kosong | `filter()`, `na.omit()` |
+| Pembersihan transaksi tidak valid | Menghapus transaksi dengan quantity atau harga tidak valid | `filter()` |
+| Pembentukan fitur RFM | Mengubah data transaksi menjadi data pelanggan | `group_by()`, `summarise()` |
+| Standardisasi fitur | Menyamakan skala Recency, Frequency, dan Monetary | `scale()` |
+
+### 2. Algoritma Clustering Tambahan
+
+Selain K-Means dan GMM, algoritma berikut dapat ditambahkan untuk memperluas perbandingan metode clustering:
+
+| Algoritma | Keterangan | Fungsi R |
+|---|---|---|
+| Hierarchical Clustering | Clustering hierarkis berbasis dendrogram dengan average linkage | `hclust(method = "average")` |
+| Partitioning Around Medoids / K-Medoids | Clustering berbasis medoid yang lebih tahan terhadap outlier dibanding K-Means | `pam()` |
+| DBSCAN | Clustering berbasis kepadatan dan dapat mendeteksi noise/outlier | `dbscan()` |
+
+### 3. Penentuan Parameter Optimal
+
+Setiap algoritma membutuhkan parameter yang sesuai agar hasil clustering lebih representatif.
+
+| Algoritma | Parameter | Cara Penentuan | Fungsi R |
+|---|---|---|---|
+| K-Means | Jumlah cluster `k` | Elbow Method dan Silhouette Method | `fviz_nbclust()`, `silhouette()` |
+| GMM | Jumlah komponen `G` | BIC dan validasi cluster | `Mclust()` |
+| Hierarchical Clustering | Jumlah cluster dari dendrogram | Pemotongan pohon dendrogram | `cutree()` |
+| K-Medoids | Jumlah cluster `k` | Silhouette Method | `pam()` |
+| DBSCAN | Nilai `eps` dan `minPts` | Plot k-distance | `kNNdistplot()` |
+
+### 4. Validasi Cluster
+
+Validasi cluster digunakan untuk menilai kualitas hasil clustering dan memilih algoritma terbaik.
+
+#### Internal Criteria
+
+Internal criteria digunakan ketika tidak tersedia label asli pada data.
+
+| Metrik | Tujuan | Fungsi R |
+|---|---|---|
+| Average Silhouette Width | Mengukur seberapa baik objek berada dalam cluster-nya | `silhouette()` |
+| Davies-Bouldin Index | Mengukur rasio kedekatan dalam cluster dan pemisahan antar cluster | `index.DB()` |
+| Calinski-Harabasz Index | Mengukur rasio varians antar cluster terhadap varians dalam cluster | `cluster.stats()` |
+| Shadow Value | Mengevaluasi kualitas pemisahan dan stabilitas cluster | `cluster.stats()` |
+
+#### External Criteria
+
+External criteria hanya dapat digunakan jika tersedia label asli atau kelas referensi.
+
+| Metrik | Tujuan | Fungsi R |
+|---|---|---|
+| Cluster Accuracy | Mengukur kesesuaian hasil cluster dengan label asli | Perhitungan manual |
+| Cluster Purity | Mengukur dominasi label asli pada setiap cluster | Perhitungan manual |
+| Rand Index | Mengukur kesamaan antara hasil cluster dan label asli | `extCriteria(metric = "Rand")` |
+
+Pada dataset Online Retail II, label asli segmentasi pelanggan tidak tersedia. Oleh karena itu, evaluasi utama menggunakan **internal criteria**.
+
+### 5. Evaluasi Akhir
+
+Tahap akhir digunakan untuk membandingkan hasil antar-algoritma dan menentukan metode terbaik.
+
+Komponen evaluasi akhir:
+
+| Komponen | Tujuan | Fungsi R |
+|---|---|---|
+| Tabel kontingensi antar-algoritma | Membandingkan kesesuaian hasil cluster antar metode | `table()` |
+| Tabel rangkuman validasi | Membandingkan metrik validasi tiap algoritma | `data.frame()`, `knitr::kable()` |
+| Pemilihan algoritma terbaik | Menentukan metode dengan hasil cluster paling baik | Berdasarkan metrik validasi |
+
 Validasi cluster menggunakan:
 
 | Metrik | Kriteria |
@@ -114,6 +193,8 @@ install.packages(c(
   "fpc",
   "scales",
   "clusterSim",
+  "dbscan",
+  "clusterCrit",
   "knitr",
   "rmarkdown"
 ))
