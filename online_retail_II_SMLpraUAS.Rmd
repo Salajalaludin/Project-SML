@@ -355,7 +355,18 @@ print(table(rfm$Cluster_DBSCAN))
 
 # Validasi Cluster
 
-Validasi menggunakan kriteria **internal** karena tidak ada label kelas yang diketahui (unsupervised).
+Karena dataset ini tidak memiliki label kelas bawaan, analisis dilakukan sebagai **unsupervised learning murni**. Oleh karena itu, evaluasi tidak dapat memakai akurasi terhadap label asli. Sebagai gantinya, kualitas pembagian cluster **wajib** diukur menggunakan **Internal Criteria**, yaitu metrik yang menilai kualitas cluster hanya dari struktur data dan hasil pengelompokan.
+
+Internal Criteria yang digunakan:
+
+| Metrik | Tujuan | Arah Evaluasi |
+|---|---|---|
+| Silhouette Width | Mengukur kedekatan anggota terhadap cluster sendiri dibanding cluster lain | Lebih besar lebih baik |
+| Shadow Value | Mengukur kualitas pemisahan cluster berdasarkan nilai internal `cluster.stats()` | Lebih besar lebih baik |
+| Davies-Bouldin Index | Mengukur rasio kepadatan dalam cluster dan jarak antar-cluster | Lebih kecil lebih baik |
+| Calinski-Harabasz Index | Mengukur rasio variasi antar-cluster terhadap variasi dalam cluster | Lebih besar lebih baik |
+
+Metrik-metrik tersebut digunakan untuk membandingkan semua algoritma kandidat secara objektif dan memilih hasil akhir pada `Cluster_Final`.
 
 ## Silhouette Width
 
@@ -512,12 +523,20 @@ best_method <- validasi_semua$Metode[1]
 rfm$Cluster_Final <- as.factor(cluster_candidates[[best_method]])
 
 validasi_laporan <- validasi_semua |>
+  mutate(
+    Metode = recode(
+      Metode,
+      "Hierarchical Average" = "HClust Avg",
+      "PAM / K-Medoids" = "PAM"
+    )
+  ) |>
   dplyr::select(
     Metode,
     N,
-    Cluster = Jumlah.Cluster,
+    K = Jumlah.Cluster,
     Noise,
-    Silhouette,
+    Sil = Silhouette,
+    Shad = Shadow.Value,
     DB = Davies.Bouldin,
     CH = Calinski.Harabasz,
     Rank = Rank.Total
@@ -525,7 +544,7 @@ validasi_laporan <- validasi_semua |>
 
 knitr::kable(
   validasi_laporan,
-  align = "lrrrrrrr",
+  align = "lrrrrrrrr",
   format.args = list(big.mark = ","),
   caption = "Rangkuman Validasi Internal dan Pemilihan Algoritma Terbaik"
 )
@@ -618,7 +637,7 @@ ggplot(profil_long, aes(x = Cluster_Final, y = ValueNorm, fill = Cluster_Final))
 Berikut interpretasi bisnis berdasarkan rata-rata RFM untuk 2 cluster
 berdasarkan output `profil`:
 
-```{r}
+```{r, results='asis'}
 interp <- data.frame(
   Cluster    = c("1","2"),
   Segmen     = c("Pelanggan Aktif / Bernilai Tinggi",
@@ -633,8 +652,12 @@ interp <- data.frame(
   ),
   stringsAsFactors = FALSE
 )
-knitr::kable(interp, align = "llll",
-             caption = "Interpretasi dan Rekomendasi Bisnis per Cluster")
+
+for (i in seq_len(nrow(interp))) {
+  cat("### Cluster ", interp$Cluster[i], ": ", interp$Segmen[i], "\n\n", sep = "")
+  cat("**Deskripsi:** ", interp$Deskripsi[i], "\n\n", sep = "")
+  cat("**Rekomendasi:** ", interp$Rekomendasi[i], "\n\n", sep = "")
+}
 ```
 
 > **Catatan:** Label segmen di atas bersifat indikatif. Sesuaikan dengan

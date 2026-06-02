@@ -71,7 +71,7 @@ Semua algoritma diperlakukan sebagai kandidat. Hasil akhir dipilih berdasarkan k
 
 ## Validasi Cluster
 
-Validasi menggunakan internal criteria karena dataset tidak memiliki label asli segmentasi pelanggan.
+Karena dataset ini tidak memiliki label kelas bawaan, analisis dilakukan sebagai **unsupervised learning murni**. Artinya, hasil cluster tidak bisa dinilai menggunakan akurasi terhadap label asli. Oleh karena itu, proyek ini **wajib menggunakan Internal Criteria** untuk mengukur kualitas pembagian kelompok secara objektif berdasarkan struktur data.
 
 | Metrik | Arah Evaluasi | Fungsi R |
 |---|---|---|
@@ -80,7 +80,7 @@ Validasi menggunakan internal criteria karena dataset tidak memiliki label asli 
 | Davies-Bouldin Index | Lebih kecil lebih baik | `index.DB()` |
 | Calinski-Harabasz Index | Lebih besar lebih baik | `cluster.stats()` |
 
-Notebook membuat tabel `validasi_semua`, lalu menghitung ranking untuk tiap metrik:
+Notebook dan Rmd membuat tabel `validasi_semua`, lalu menghitung ranking untuk tiap metrik:
 
 ```text
 Rank.Silhouette
@@ -93,13 +93,13 @@ Algoritma dengan `Rank.Total` terbaik dipilih sebagai `Cluster_Final`. Pada hasi
 
 ## Rangkuman Hasil Validasi
 
-| Metode | N | Cluster | Noise | Silhouette | Davies-Bouldin | Calinski-Harabasz | Rank Total |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| K-Means | 5.878 | 2 | 0 | 0.4381 | 0.9693 | 6205.27 | 5 |
-| Hierarchical Average | 5.878 | 2 | 0 | 0.5815 | 0.7459 | 151.62 | 7 |
-| PAM / K-Medoids | 5.878 | 2 | 0 | 0.4340 | 0.9765 | 6161.99 | 8 |
-| GMM | 5.878 | 2 | 0 | 0.2924 | 1.0982 | 3056.20 | 11 |
-| DBSCAN | 5.819 | 2 | 59 | 0.2784 | 1.1334 | 2902.03 | 14 |
+| Metode | N | K | Noise | Sil | Shad | DB | CH | Rank |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| K-Means | 5.878 | 2 | 0 | 0.4381 | 0.4381 | 0.9693 | 6205.27 | 5 |
+| HClust Avg | 5.878 | 2 | 0 | 0.5815 | 0.5815 | 0.7459 | 151.62 | 7 |
+| PAM | 5.878 | 2 | 0 | 0.4340 | 0.4340 | 0.9765 | 6161.99 | 8 |
+| GMM | 5.878 | 2 | 0 | 0.2924 | 0.2924 | 1.0982 | 3056.20 | 11 |
+| DBSCAN | 5.819 | 2 | 59 | 0.2784 | 0.2784 | 1.1334 | 2902.03 | 14 |
 
 DBSCAN memiliki 59 data noise. Untuk validasi internal DBSCAN, noise dikeluarkan dari perhitungan metrik agar evaluasi hanya membandingkan anggota cluster.
 
